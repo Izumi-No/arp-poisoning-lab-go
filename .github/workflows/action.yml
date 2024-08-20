@@ -2,7 +2,7 @@ name: Cross Compile and Upload
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build:
