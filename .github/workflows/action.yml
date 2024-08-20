@@ -1,0 +1,32 @@
+name: Cross Compile and Upload
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        arch: [amd64, arm64]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.22.1"
+
+      - name: Build
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
+          go mod tidy && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/server server/server.go && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/client client/client.go
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: dist
