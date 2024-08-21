@@ -54,7 +54,7 @@ func (s *Sockets) GetSocketIDs() []uuid.UUID {
 func main() {
 
 	fmt.Println("Server is running on port 3000")
-	listener, err := net.Listen("tcp", "localhost:3000")
+	listener, err := net.Listen("tcp", "0.0.0.0:3000")
 	if err != nil {
 		fmt.Println("Error listening", err.Error())
 		return
@@ -119,6 +119,9 @@ func handleClient(conn net.Conn, id uuid.UUID, sockets *Sockets) {
 
 		case "broadcast":
 			for _, conn := range sockets.GetSockets() {
+				if recievedMessage.Data[0].(string) == "00000000-0000-0000-0000-000000000000" {
+					continue
+				}
 				_, err = conn.Write(message[:n])
 				if err != nil {
 					fmt.Println("Error sending message", err)

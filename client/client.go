@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -61,8 +62,12 @@ func main() {
 	// Get the public key corresponding to the private key
 	publicKey := privateKey.PublicKey()
 
+	//get flag server
+	serverAddress := flag.String("server", "localhost:3000", "Server address")
+	flag.Parse()
+
 	// Connect to the server
-	conn, err := net.Dial("tcp", "localhost:3000")
+	conn, err := net.Dial("tcp", *serverAddress)
 	if err != nil {
 		fmt.Println("Error connecting:", err)
 		return
@@ -98,6 +103,50 @@ func main() {
 				fmt.Println("Error parsing UUID:", err)
 				continue // Continue waiting for messages even after an error
 			}
+
+		}
+
+		if receivedMessage.Event == "discover" {
+
+			// receivedMessage.Data.uuid.UUID
+
+			newArray := make([]interface{}, 0)
+
+			var ids = receivedMessage.Data[0].([]interface{})
+
+			for i := 0; i < len(ids); i++ {
+				Id := ids[i]
+
+				if Id.(string) == id.String() {
+					continue
+				}
+
+				newArray = append(newArray, Id)
+			}
+
+			if len(newArray) == 0 {
+				fmt.Println("No clients found")
+			} else {
+				fmt.Println("Discovered Clients:")
+
+				for i := 0; i < len(newArray); i++ {
+					fmt.Println(newArray[i])
+
+				}
+			}
+
+			fmt.Print("> ")
+
+		}
+
+		if receivedMessage.Event == "broadcast" {
+			if receivedMessage.Data[0].(string) == "00000000-0000-0000-0000-000000000000" {
+				fmt.Println("Server: " + receivedMessage.Data[1].(string))
+				continue
+			}
+
+			fmt.Println(receivedMessage.Data[0].(string) + " : " + receivedMessage.Data[1].(string))
+
 		}
 		if receivedMessage.Event == "KE-OK" {
 			// Parse the client ID received during setup
@@ -109,7 +158,7 @@ func main() {
 		}
 
 		if receivedMessage.Event == "KE" {
-			fmt.Println("Received KE message from server")
+			//fmt.Println("Received KE message from server")
 
 			otherId, err := uuid.Parse(receivedMessage.Data[0].(string))
 			if err != nil {
@@ -165,7 +214,7 @@ func main() {
 				return
 			}
 
-			fmt.Println("Sent KE-OK message to server")
+			//fmt.Println("Sent KE-OK message to server")
 
 			event := Event{
 				Event: "KE",
@@ -234,7 +283,7 @@ func main() {
 
 		if receivedMessage.Event == "discover" {
 			// List all client UUIDs
-			fmt.Println("Clients:")
+
 			for _, client := range receivedMessage.Data[0].([]interface{}) {
 				clientID, err := uuid.Parse(client.(string))
 				if err != nil {
@@ -258,7 +307,7 @@ func main() {
 				}
 
 				if clientID != id {
-					fmt.Println("Sending KE message to:", clientID)
+					//fmt.Println("Sending KE message to:", clientID)
 					_, err = conn.Write(data)
 					if err != nil {
 						fmt.Println("Error sending KE message:", err)
@@ -291,17 +340,7 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 				Data:  []interface{}{id.String(), message},
 			}
 
-			data, err := json.Marshal(event)
-			if err != nil {
-				fmt.Println("Error encoding:", err)
-				continue // Continue waiting for input even after an error
-			}
-
-			_, err = conn.Write(data)
-			if err != nil {
-				fmt.Println("Error sending message:", err)
-				return // End the goroutine if there's an error sending the message
-			}
+			sendData(conn, event)
 
 		case "discover":
 			event := Event{
@@ -323,71 +362,82 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 				return // End the goroutine if there's an error sending the message
 			}
 
-		case "private":
-			var message string
+		case "send":
+
 			var targetID string
-			fmt.Print("Target ID: ")
+			var message string
+			var isPrivate bool
+			fmt.Print("Destination ID: ")
 			fmt.Scanln(&targetID)
 			fmt.Print("Message: ")
 			fmt.Scanln(&message)
 
-			event := Event{
-				Event: "message",
-				Data:  []interface{}{id.String(), targetID, message},
-			}
+		encryptQuestion:
+			fmt.Print("Encrypt? (y)es / (n)o / (c)ancel: ")
 
-			data, err := json.Marshal(event)
-			if err != nil {
-				fmt.Println("Error encoding:", err)
-				continue // Continue waiting for input even after an error
-			}
+			var encrypt string
+			fmt.Scanln(&encrypt)
 
-			_, err = conn.Write(data)
-			if err != nil {
-				fmt.Println("Error sending message:", err)
-				return // End the goroutine if there's an error sending the message
-			}
-		case "private-crypto":
-			var message string
-			var targetID string
-			fmt.Print("Target ID: ")
-			fmt.Scanln(&targetID)
-			fmt.Print("Message: ")
-			fmt.Scanln(&message)
-
-			targetUUID, err := uuid.Parse(targetID)
-			if err != nil {
-				fmt.Println("Error parsing UUID:", err)
+			switch encrypt {
+			case "y":
+				isPrivate = true
+			case "n":
+				isPrivate = false
+			case "c":
 				continue
+			default:
+				goto encryptQuestion
+
 			}
 
-			// Get shared key
-			sharedKey := sharedKeys.GetKey(targetUUID)
-			if sharedKey == nil {
-				fmt.Println("No shared key found for target ID:", targetID)
-				continue
+			if isPrivate {
+
+				targetUUID, err := uuid.Parse(targetID)
+				if err != nil {
+					fmt.Println("Error parsing UUID:", err)
+					continue
+				}
+
+				// Get shared key
+				sharedKey := sharedKeys.GetKey(targetUUID)
+				if sharedKey == nil {
+					fmt.Println("No shared key found for target ID:", targetID)
+					continue
+				}
+
+				// Encrypt message
+				encryptedMessage, err := encryptMessage([]byte(message), sharedKey)
+				if err != nil {
+					fmt.Println("Error encrypting message:", err)
+					continue
+				}
+
+				// Send encrypted message to server
+				event := Event{
+					Event: "message-encrypted",
+					Data:  []interface{}{id.String(), targetID, encryptedMessage},
+				}
+
+				sendData(conn, event)
+
+			} else {
+
+				event := Event{
+					Event: "message",
+					Data:  []interface{}{id.String(), targetID, message},
+				}
+
+				sendData(conn, event)
+
 			}
-
-			// Encrypt message
-			encryptedMessage, err := encryptMessage([]byte(message), sharedKey)
-			if err != nil {
-				fmt.Println("Error encrypting message:", err)
-				continue
-			}
-
-			// Send encrypted message to server
-			event := Event{
-				Event: "message-encrypted",
-				Data:  []interface{}{id.String(), targetID, encryptedMessage},
-			}
-
-			sendData(conn, event)
-
+		case "whoami":
+			fmt.Println("Your UUID:", id.String())
 		case "help":
 			fmt.Println("Commands:")
 			fmt.Println("exit - Close the connection")
-			fmt.Println("broadcast <message> - Send a message to all clients")
-			fmt.Println("discover - Discover all connected clients")
+			fmt.Println("broadcast - Send a message to all clients")
+			fmt.Println("discover - Discover all connected clients and Exchange keys")
+			fmt.Println("send - Send a message to a specific client")
 
 		default:
 			fmt.Println("Unknown command:", command)
