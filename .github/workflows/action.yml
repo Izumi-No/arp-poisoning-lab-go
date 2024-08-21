@@ -1,4 +1,4 @@
-name: Cross Compile, Upload, and Create Release
+name: Cross Compile and Upload
 
 on:
   push:
@@ -24,39 +24,19 @@ jobs:
 
       - name: Build
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
+          env GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
           go mod tidy && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/server server/server.go && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/client client/client.go
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: softprops/action-gh-release@v2
         with:
-          name: binaries
-          path: dist
+          files: |
+            dist/{{ matrix.os }}-amd64/server
+            dist/{{ matrix.os }}-amd64/client
+          tag_name: v{{ github.ref }}
+          body: |
+            This release includes binaries for {{ matrix.os }} and {{ matrix.arch }}.
 
-  create-release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-      - run: npm install @actions/github @actions/core
-      - id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          body: Automatic release created by GitHub Actions
-          draft: false
-          prerelease: false
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist
-          asset_name: binaries.zip
-          asset_content_type: application/zip
+            **Download links:**
+            - Server: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/server-{{ matrix.os }}-{{ matrix.arch }}
+            - Client: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/client-{{ matrix.os }}-{{ matrix.arch }}
