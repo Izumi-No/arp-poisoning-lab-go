@@ -34,7 +34,8 @@ jobs:
           files: |
             dist/{{ matrix.os }}-amd64/server
             dist/{{ matrix.os }}-amd64/client
-          tag_name: v{{ github.ref }}
+          #generate tag_name by the commit number
+          tag_name: v${{ github.sha }}
           body: |
             This release includes binaries for {{ matrix.os }} and {{ matrix.arch }}.
 
