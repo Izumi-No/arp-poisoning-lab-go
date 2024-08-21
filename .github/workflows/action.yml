@@ -9,10 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        arch: [amd64]
 
     steps:
       - uses: actions/checkout@v3
@@ -24,8 +20,12 @@ jobs:
 
       - name: Build
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
-          go mod tidy && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/server server/server.go && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/client client/client.go
+          GOOS=linux GOARCH=amd64
+          go mod tidy && go build -o dist/linux-amd64/server server/server.go && go build -o dist/linux-amd64/client client/client.go &&
+          GOOS=windows GOARCH=amd64
+          go mod tidy && go build -o dist/windows-amd64/server.exe server/server.go && go build -o dist/windows-amd64/client.exe client/client.go &&
+          GOOS=darwin GOARCH=amd64
+          go mod tidy && go build -o dist/darwin-amd64/server server/server.go && go build -o dist/darwin-amd64/client client/client.go
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -33,21 +33,7 @@ jobs:
           tag_name: v${{ github.sha }}
           token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
           files: |
-            dist/${{ matrix.os }}-${{ matrix.arch }}/server
-            dist/${{ matrix.os }}-${{ matrix.arch }}/client
-
-      # - name: Upload Artifacts
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-      #     files: |
-      #       dist/{{ matrix.os }}-amd64/server
-      #       dist/{{ matrix.os }}-amd64/client
-      #     #generate tag_name by the commit number
-      #     tag_name: v${{ github.sha }}
-      #     body: |
-      #       This release includes binaries for {{ matrix.os }} and {{ matrix.arch }}.
-
-      #       **Download links:**
-      #       - Server: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/server-{{ matrix.os }}-{{ matrix.arch }}
-      #       - Client: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/client-{{ matrix.os }}-{{ matrix.arch }}
+            dist/linux-amd64/linux-amd64-server
+            dist/linux-amd64/linux-amd64-client
+            dist/windows-amd64/windows-amd64-server.exe
+            dist/windows-amd64/windows-amd64-client.exe
