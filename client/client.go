@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"os/signal"
 
 	"github.com/google/uuid"
 )
@@ -75,9 +77,18 @@ func main() {
 	defer conn.Close()
 
 	var id uuid.UUID
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
 
 	// Start handling terminal input in a separate goroutine
 	go handleTerminal(conn, &id, sharedKeys)
+
+	go func() {
+		<-signalChan
+		fmt.Println("\nReceived interrupt signal. Exiting...")
+		conn.Close()
+		os.Exit(0)
+	}()
 
 	for {
 		message := make([]byte, 4096)
@@ -320,15 +331,18 @@ func main() {
 }
 
 func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
+init:
 	for {
 		var command string
-		fmt.Print("> ")
+		fmt.Print("\n> ")
 		fmt.Scanln(&command)
+		//listen ctrl+c
 
 		switch command {
 		case "exit":
-			conn.Close()
-			return
+			fmt.Println("Exiting...")
+			//kill process
+			os.Exit(0)
 
 		case "broadcast":
 			var message string
@@ -366,7 +380,7 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 
 			var targetID string
 			var message string
-			var isPrivate bool
+			var isPrivate int
 			fmt.Print("Destination ID: ")
 			fmt.Scanln(&targetID)
 			fmt.Print("Message: ")
@@ -380,18 +394,18 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 
 			switch encrypt {
 			case "y":
-				isPrivate = true
+				isPrivate = 0
 			case "n":
-				isPrivate = false
+				isPrivate = 1
 			case "c":
-				continue
+				isPrivate = 2
 			default:
-				goto encryptQuestion
+				isPrivate = -1
 
 			}
 
-			if isPrivate {
-
+			switch isPrivate {
+			case 0:
 				targetUUID, err := uuid.Parse(targetID)
 				if err != nil {
 					fmt.Println("Error parsing UUID:", err)
@@ -420,7 +434,7 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 
 				sendData(conn, event)
 
-			} else {
+			case 1:
 
 				event := Event{
 					Event: "message",
@@ -429,7 +443,13 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 
 				sendData(conn, event)
 
+			case 2:
+				goto init
+			case -1:
+				goto encryptQuestion
+
 			}
+
 		case "whoami":
 			fmt.Println("Your UUID:", id.String())
 		case "help":
@@ -440,8 +460,13 @@ func handleTerminal(conn net.Conn, id *uuid.UUID, sharedKeys *sharedKeys) {
 			fmt.Println("send - Send a message to a specific client")
 
 		default:
+			if command == "" {
+				continue
+			}
+
 			fmt.Println("Unknown command:", command)
 			fmt.Println("Type 'help' for a list of commands.")
+
 		}
 	}
 }
