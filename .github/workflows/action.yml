@@ -24,7 +24,7 @@ jobs:
 
       - name: Build
         run: |
-          env GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
           go mod tidy && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/server server/server.go && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/client client/client.go
 
       - name: Upload Artifacts
