@@ -26,19 +26,27 @@ jobs:
         run: |
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
           go mod tidy && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/server server/server.go && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/client client/client.go
-
-      - name: Upload Artifacts
+      - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-          files: |
-            dist/{{ matrix.os }}-amd64/server
-            dist/{{ matrix.os }}-amd64/client
-          #generate tag_name by the commit number
           tag_name: v${{ github.sha }}
-          body: |
-            This release includes binaries for {{ matrix.os }} and {{ matrix.arch }}.
+          files: |
+            dist/${{ matrix.os }}-${{ matrix.arch }}/server
+            dist/${{ matrix.os }}-${{ matrix.arch }}/client
+        
 
-            **Download links:**
-            - Server: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/server-{{ matrix.os }}-{{ matrix.arch }}
-            - Client: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/client-{{ matrix.os }}-{{ matrix.arch }}
+      # - name: Upload Artifacts
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+      #     files: |
+      #       dist/{{ matrix.os }}-amd64/server
+      #       dist/{{ matrix.os }}-amd64/client
+      #     #generate tag_name by the commit number
+      #     tag_name: v${{ github.sha }}
+      #     body: |
+      #       This release includes binaries for {{ matrix.os }} and {{ matrix.arch }}.
+
+      #       **Download links:**
+      #       - Server: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/server-{{ matrix.os }}-{{ matrix.arch }}
+      #       - Client: https://github.com/Izumi-No/arp-poisoning-lab-go/releases/download/v{{ github.ref }}/client-{{ matrix.os }}-{{ matrix.arch }}
