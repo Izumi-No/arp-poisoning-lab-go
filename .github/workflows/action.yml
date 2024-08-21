@@ -21,7 +21,7 @@ jobs:
       - name: Build Linux
         run: |
           env GOOS=linux GOARCH=amd64
-          go mod tidy && go build -o dist/linux-amd64/server server/server.go && go build -o dist/linux-amd64/client client/client.go
+          go mod tidy && go build -o dist/linux-amd64/linux-amd64-server server/server.go && go build -o dist/linux-amd64/linux-amd64-client client/client.go
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
