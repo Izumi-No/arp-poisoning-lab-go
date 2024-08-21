@@ -26,14 +26,15 @@ jobs:
         run: |
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }}
           go mod tidy && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/server server/server.go && go build -o dist/${{ matrix.os }}-${{ matrix.arch }}/client client/client.go
-      - name: Release
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.sha }}
+          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
           files: |
             dist/${{ matrix.os }}-${{ matrix.arch }}/server
             dist/${{ matrix.os }}-${{ matrix.arch }}/client
-        
 
       # - name: Upload Artifacts
       #   uses: softprops/action-gh-release@v2
